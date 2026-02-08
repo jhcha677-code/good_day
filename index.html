@@ -3,31 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>정밀 생기복덕 분석기</title>
+    <title>good-day 택일 서비스</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
-        .day-cell { min-height: 100px; transition: all 0.2s; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
+        .day-cell { min-height: 95px; transition: all 0.2s; border-bottom: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; }
         .day-cell:hover { background-color: #f1f5f9; cursor: pointer; }
         .good-day { background-color: #ecfdf5; color: #065f46; }
         .bad-day { background-color: #fff1f2; color: #9f1239; }
         .normal-day { background-color: #eff6ff; color: #1e40af; }
+        .selected-day { ring: 2px inset #4f46e5; background-color: #eef2ff; }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
         <header class="bg-gradient-to-r from-indigo-700 to-blue-700 p-6 text-white text-center">
-            <h1 class="text-2xl font-bold italic">☯️ 정밀 생기복덕 분석기</h1>
-            <p class="text-sm opacity-90 mt-2">본명괘 기반 길흉 판정 시스템</p>
+            <h1 class="text-2xl font-bold italic">☯️ good-day 택일 서비스</h1>
+            <p class="text-sm opacity-90 mt-2">양력/음력 입력 완전 동기화 및 무한 달력 시스템</p>
         </header>
 
         <main class="p-6 space-y-6">
-            <section class="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+            <!-- 입력 섹션 -->
+            <section class="bg-gray-50 p-6 rounded-2xl border border-gray-200 shadow-sm">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-1">성별</label>
-                        <select id="gender" class="w-full border p-2 rounded bg-white outline-none">
+                        <select id="gender" class="w-full border p-2 rounded bg-white outline-none focus:ring-2 focus:ring-indigo-500">
                             <option value="male">남성</option>
                             <option value="female">여성</option>
                         </select>
@@ -40,45 +42,97 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">양력/음력</label>
-                        <select id="calendarType" class="w-full border p-2 rounded bg-white outline-none">
-                            <option value="solar">양력(Solar)</option>
-                            <option value="lunar">음력(Lunar)</option>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">입력 기준</label>
+                        <select id="calendarType" class="w-full border p-2 rounded bg-white outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="solar">양력으로 입력</option>
+                            <option value="lunar">음력으로 입력</option>
                         </select>
                     </div>
                     <div class="flex items-end">
                         <button onclick="analyze()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl transition-all shadow-lg">
-                            📊 분석 시작
+                            📊 생일 분석하기
                         </button>
                     </div>
                 </div>
             </section>
 
+            <!-- 달력 섹션 -->
             <section>
                 <div class="flex justify-between items-center mb-4 px-2">
                     <div class="flex items-center gap-4">
                         <button onclick="changeMonth(-1)" class="p-2 hover:bg-gray-100 rounded-full transition-colors">◀</button>
-                        <h2 class="text-xl font-bold text-gray-800" id="currentMonthYearDisplay">2026년 1월</h2>
+                        <h2 class="text-xl font-bold text-gray-800" id="currentMonthDisplay">2026년 2월</h2>
                         <button onclick="changeMonth(1)" class="p-2 hover:bg-gray-100 rounded-full transition-colors">▶</button>
                     </div>
-                    <span id="myeongGwaDisplay" class="text-sm font-bold text-indigo-600"></span>
+                    <div class="text-right">
+                        <span id="myeongGwaDisplay" class="text-sm font-bold text-indigo-600 block"></span>
+                        <span id="lunarRefDisplay" class="text-[10px] text-gray-400"></span>
+                    </div>
                 </div>
-                <div class="grid grid-cols-7 text-center font-bold text-gray-500 text-xs mb-2 border-b pb-2">
-                    <div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div>
+                <div class="grid grid-cols-7 text-center font-bold text-gray-500 text-[10px] mb-2 border-b pb-2 uppercase tracking-widest">
+                    <div class="text-red-500">Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div class="text-blue-500">Sat</div>
                 </div>
                 <div id="calendarContainer" class="calendar-grid border-t border-l rounded-lg overflow-hidden border-gray-200"></div>
             </section>
 
+            <!-- 리포트 섹션 -->
             <section id="analysisResult" class="hidden bg-white border-2 border-indigo-100 p-6 rounded-2xl shadow-sm">
                 <div id="reportContent"></div>
             </section>
         </main>
     </div>
 
+    <!-- Firebase SDK (Rule 3) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB-eOuTEl0Ac9umonVhD82suBOVnvjZM1k",
+            authDomain: "good-day-bc3a7.firebaseapp.com",
+            projectId: "good-day-bc3a7",
+            storageBucket: "good-day-bc3a7.firebasestorage.app",
+            messagingSenderId: "681248607698",
+            appId: "1:681248607698:3c5758ef797d890910c0b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const artifactId = "good-day-bc3a7";
+
+        let currentUser = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            currentUser = user;
+            if (user) { loadData(); } else { try { await signInAnonymously(auth); } catch(e) {} }
+        });
+
+        async function loadData() {
+            if (!currentUser) return;
+            const userDoc = doc(db, 'artifacts', artifactId, 'users', currentUser.uid, 'settings', 'profile');
+            const snap = await getDoc(userDoc);
+            if (snap.exists()) {
+                const data = snap.data();
+                document.getElementById('birthDate').value = data.birthDate || '';
+                document.getElementById('birthTime').value = data.birthTime || '';
+                document.getElementById('gender').value = data.gender || 'male';
+                document.getElementById('calendarType').value = data.calendarType || 'solar';
+                window.analyze(false);
+            }
+        }
+
+        window.saveData = async (data) => {
+            if (!currentUser) return;
+            try { await setDoc(doc(db, 'artifacts', artifactId, 'users', currentUser.uid, 'settings', 'profile'), data); } catch (e) {}
+        };
+    </script>
+
     <script>
+        let viewDate = new Date(); 
         let isAnalyzed = false;
-        let userData = { myeongGwa: 1 };
-        let viewDate = new Date(2026, 0, 1); // 현재 달력 보기 기준일
+        let userData = { myeongGwa: 0, lunarYear: 0 };
 
         const saengGiTable = {
             1: { '북': '복덕', '북동': '귀혼', '동': '천의', '남동': '생기', '남': '유혼', '남서': '절체', '서': '화해', '북서': '절명' },
@@ -92,71 +146,63 @@
         };
 
         const aiExplainBase = {
-            '생기': { summary: "전반적인 기운이 가장 강한 대길일입니다.", action: ["시작", "확장", "결정"], avoid: [], recommend: "결혼, 개업, 이사, 계약" },
-            '천의': { summary: "귀인의 도움과 회복 운이 따르는 날입니다.", action: ["치유", "상담", "정리"], avoid: ["무리한 확장"], recommend: "병원 방문, 협상, 문제 해결" },
-            '복덕': { summary: "재물과 인간관계의 조화가 좋은 날입니다.", action: ["만남", "재정", "협업"], avoid: [], recommend: "금전 거래, 가족 행사" },
-            '유혼': { summary: "집중력이 흐트러지기 쉬운 평범한 날입니다.", action: ["일상 유지"], avoid: ["중요 결정"], recommend: "루틴 업무, 단순 사무" },
-            '귀혼': { summary: "마무리와 정리에 적합한 날입니다.", action: ["정리", "복기"], avoid: ["새 출발"], recommend: "정산, 회고, 집안 정리" },
-            '화해': { summary: "구설이나 충돌이 발생하기 쉬운 흉일입니다.", action: [], avoid: ["대면", "계약"], recommend: "외출 자제, 독서, 명상" },
-            '절체': { summary: "기운이 막혀 진행이 어려운 날입니다.", action: [], avoid: ["투자", "이동"], recommend: "휴식, 정적 활동" },
-            '절명': { summary: "가장 강한 대흉일로 모든 결정이 불리합니다.", action: [], avoid: ["모든 중요 활동"], recommend: "정적인 생활, 기도, 자숙" }
+            '생기': { summary: "전반적인 기운이 강한 대길일입니다.", action: ["시작", "확장"], recommend: "결혼, 개업, 계약" },
+            '천의': { summary: "귀인의 도움과 치유의 운이 강합니다.", action: ["상담", "치료"], recommend: "병원, 협상" },
+            '복덕': { summary: "재물과 화합의 운이 따르는 날입니다.", action: ["만남", "재무"], recommend: "가족 행사, 투자" },
+            '절체': { summary: "기운이 막혀 휴식이 필요한 날입니다.", action: ["정지", "휴식"], recommend: "재정비" },
+            '유혼': { summary: "정신이 산만해지기 쉬운 무난한 날입니다.", action: ["일상유지"], recommend: "루틴 업무" },
+            '귀혼': { summary: "마무리와 정리에 적합한 날입니다.", action: ["마감", "정리"], recommend: "회고, 정산" },
+            '화해': { summary: "구설수나 충돌을 주의해야 할 흉일입니다.", action: ["말조심"], recommend: "외출 자제" },
+            '절명': { summary: "기운이 다한 대흉일로 자중이 필요합니다.", action: ["침묵"], recommend: "정적인 활동" }
         };
 
-        function getUserBaseInfo() {
-            const birth = document.getElementById('birthDate').value;
-            const gender = document.getElementById('gender').value;
-            const calendarType = document.getElementById('calendarType').value;
-            
-            if (!birth) return null;
+        function getLunarInfo(date) {
+            try {
+                const options = { calendar: 'chinese', year: 'numeric', month: 'numeric', day: 'numeric' };
+                const formatter = new Intl.DateTimeFormat('en-u-ca-chinese', options);
+                const parts = formatter.formatToParts(date);
+                const info = {};
+                parts.forEach(p => { if (p.type !== 'literal') info[p.type] = p.value; });
+                const lunarYear = parseInt(info.year.replace(/[^0-9]/g, ''));
+                return {
+                    year: lunarYear,
+                    month: parseInt(info.month),
+                    day: parseInt(info.day)
+                };
+            } catch (e) {
+                return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+            }
+        }
 
-            const year = new Date(birth).getFullYear();
-            let sum = String(year).split('').reduce((acc, curr) => acc + parseInt(curr), 0);
-            let remainder = sum % 9;
-            if (remainder === 0) remainder = 9;
-
-            let myeongGwa;
+        function getMyeongGwa(year, gender) {
+            const sum = [...String(year)].reduce((a, b) => a + Number(b), 0);
+            let num = sum % 9 || 9;
+            let res;
             if (gender === 'male') {
-                myeongGwa = 11 - remainder;
-                if (myeongGwa > 9) myeongGwa -= 9;
+                res = num <= 5 ? 10 - num : 19 - num;
             } else {
-                myeongGwa = 4 + remainder;
-                if (myeongGwa > 9) myeongGwa -= 9;
+                res = num <= 5 ? num + 5 : num + 4;
             }
-
-            if (myeongGwa === 5) {
-                myeongGwa = (gender === 'male') ? 2 : 8;
-            }
-
-            return { myeongGwa, year, gender, calendarType };
+            res = res % 9 || 9;
+            if (res === 5) res = (gender === 'male') ? 2 : 8;
+            return res;
         }
 
         function getDayDirection(date) {
             const directions = ['북','북동','동','남동','남','남서','서','북서'];
-            // 절대 날짜 기반 계산 (연월일 합산 기반의 의사 랜덤 방향성)
-            const seed = date.getFullYear() + date.getMonth() + date.getDate();
-            return directions[seed % 8];
+            return directions[date.getDate() % 8];
         }
 
-        function matchSaengGi(myeongGwa, direction) {
-            if (!saengGiTable[myeongGwa]) return { type: "불명", status: "normal", summary: "-" };
-            const type = saengGiTable[myeongGwa][direction];
-            const aiData = aiExplainBase[type] || { summary: "-", action: [], avoid: [], recommend: "-" };
-            
-            let status = 'bad';
-            if (['생기','천의','복덕'].includes(type)) status = 'good';
-            else if (['유혼','귀혼','절체'].includes(type)) status = 'normal';
-            
-            return { type, status, ...aiData };
-        }
-
-        function changeMonth(offset) {
-            viewDate.setMonth(viewDate.getMonth() + offset);
-            renderCalendar();
+        function matchSaengGi(mGua, direction) {
+            if (!saengGiTable[mGua]) return { type: "평범", status: "normal" };
+            const type = saengGiTable[mGua][direction];
+            let status = (['생기','천의','복덕'].includes(type)) ? 'good' : (['화해','절명'].includes(type) ? 'bad' : 'normal');
+            return { type, status, ...aiExplainBase[type] };
         }
 
         function renderCalendar() {
             const container = document.getElementById('calendarContainer');
-            const display = document.getElementById('currentMonthYearDisplay');
+            const display = document.getElementById('currentMonthDisplay');
             if (!container) return;
             container.innerHTML = '';
             
@@ -165,90 +211,105 @@
             display.innerText = `${year}년 ${month + 1}월`;
 
             const firstDay = new Date(year, month, 1).getDay();
-            const lastDay = new Date(year, month + 1, 0).getDate();
+            const lastDate = new Date(year, month + 1, 0).getDate();
 
-            // 빈 칸 채우기
             for (let i = 0; i < firstDay; i++) {
                 const empty = document.createElement('div');
-                empty.className = 'day-cell bg-gray-50 opacity-40';
+                empty.className = 'day-cell bg-gray-50 opacity-40 border-r border-b';
                 container.appendChild(empty);
             }
 
-            for (let d = 1; d <= lastDay; d++) {
+            for (let d = 1; d <= lastDate; d++) {
                 const dateObj = new Date(year, month, d);
+                const lunar = getLunarInfo(dateObj);
                 const direction = getDayDirection(dateObj);
                 const fortune = isAnalyzed ? matchSaengGi(userData.myeongGwa, direction) : { type: "", status: "" };
                 
                 const cell = document.createElement('div');
-                cell.className = `day-cell p-2 cursor-pointer flex flex-col justify-between border-r border-b`;
-                
-                if (isAnalyzed) {
-                    const statusClass = fortune.status === 'good' ? 'good-day' : (fortune.status === 'normal' ? 'normal-day' : 'bad-day');
-                    cell.classList.add(statusClass);
-                }
+                cell.className = `day-cell p-2 flex flex-col justify-between cursor-pointer border-r border-b`;
+                if (isAnalyzed && fortune.status) cell.classList.add(fortune.status + '-day');
                 
                 cell.innerHTML = `
                     <div class="flex justify-between items-start">
-                        <span class="font-bold text-sm ${dateObj.getDay() === 0 ? 'text-red-500' : (dateObj.getDay() === 6 ? 'text-blue-500' : '')}">${d}</span>
-                        <span class="text-[8px] opacity-40">${direction}</span>
+                        <div>
+                            <span class="text-xs font-bold ${dateObj.getDay() === 0 ? 'text-red-500' : (dateObj.getDay() === 6 ? 'text-blue-500' : '')}">${d}</span>
+                            <div class="text-[8px] opacity-60 leading-tight">음 ${lunar.month}.${lunar.day}</div>
+                        </div>
+                        <span class="text-[8px] opacity-40 font-bold">${direction}</span>
                     </div>
                     <div class="text-[9px] font-bold text-center mb-1">${fortune.type || ""}</div>
                 `;
-                cell.onclick = () => showDetail(d, direction, fortune, dateObj);
+                cell.onclick = () => showDetail(d, direction, fortune, dateObj, lunar);
                 container.appendChild(cell);
             }
         }
 
-        function showDetail(day, direction, fortune, dateObj) {
-            if (!isAnalyzed || !fortune.type) return;
+        function showDetail(day, direction, fortune, dateObj, lunar) {
+            if (!isAnalyzed) return;
             const res = document.getElementById('analysisResult');
             res.classList.remove('hidden');
             const content = document.getElementById('reportContent');
             content.innerHTML = `
-                <div class="p-4">
-                    <h3 class="text-lg font-bold mb-4 border-b pb-2">📜 ${dateObj.getFullYear()}년 ${dateObj.getMonth()+1}월 ${day}일 AI 상세 리포트</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-4">
-                            <div>
-                                <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">오늘의 기운 [${direction}방위]</p>
-                                <div class="flex items-center gap-2">
-                                    <span class="px-3 py-1 ${fortune.status === 'good' ? 'bg-emerald-600' : (fortune.status === 'bad' ? 'bg-rose-600' : 'bg-blue-600')} text-white rounded-full text-xs font-bold">${fortune.type}</span>
-                                    <span class="text-sm font-medium text-gray-700">${fortune.summary}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">추천 활동</p>
-                                <p class="text-sm text-indigo-700 font-bold">✨ ${fortune.recommend}</p>
-                            </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center border-b pb-2">
+                        <h3 class="text-lg font-bold">📜 ${dateObj.toLocaleDateString()} (음력 ${lunar.year}.${lunar.month}.${lunar.day})</h3>
+                        <span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded-full font-bold">방위: ${direction}</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="p-4 rounded-xl border ${fortune.status === 'good' ? 'bg-emerald-50 border-emerald-200' : (fortune.status === 'bad' ? 'bg-rose-50 border-rose-200' : 'bg-blue-50 border-blue-200')}">
+                            <p class="text-[10px] font-bold opacity-60 uppercase mb-1">운기 판정</p>
+                            <p class="text-xl font-black">${fortune.type}</p>
+                            <p class="text-sm mt-1 leading-snug">${fortune.summary || '일진 정보를 확인하세요.'}</p>
                         </div>
-                        <div class="space-y-4">
-                            <div class="bg-gray-50 p-3 rounded-lg">
-                                <p class="text-[10px] text-gray-500 font-bold mb-2">행동 지침</p>
-                                <div class="flex flex-wrap gap-2">
-                                    ${fortune.action && fortune.action.length > 0 ? fortune.action.map(a => `<span class="bg-white border border-indigo-200 px-2 py-1 rounded text-[10px] text-indigo-600">#${a}</span>`).join('') : '<span class="text-[10px] text-rose-400 font-bold">#자중 #휴식</span>'}
-                                </div>
-                                ${fortune.avoid && fortune.avoid.length > 0 ? `<p class="mt-3 text-[10px] text-rose-500 font-bold">⚠️ 주의: ${fortune.avoid.join(', ')}</p>` : ''}
+                        <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <p class="text-[10px] font-bold text-gray-400 uppercase mb-1">AI 택일 가이드</p>
+                            <p class="text-sm font-bold text-indigo-700">✨ 추천: ${fortune.recommend || '일상 유지'}</p>
+                            <div class="flex flex-wrap gap-1 mt-3">
+                                ${(fortune.action || ['관망']).map(a => `<span class="bg-white border border-gray-200 text-[10px] px-2 py-0.5 rounded text-gray-600">#${a}</span>`).join('')}
                             </div>
                         </div>
                     </div>
                 </div>
             `;
-            res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            res.scrollIntoView({ behavior: 'smooth' });
         }
 
-        function analyze() {
-            const info = getUserBaseInfo();
-            if (!info) return alert("생년월일을 입력하세요.");
+        window.analyze = function(shouldSave = true) {
+            const birthStr = document.getElementById('birthDate').value;
+            if (!birthStr) { if (shouldSave) alert("생년월일을 입력해주세요."); return; }
+
+            const parts = birthStr.split('-');
+            const birthDateObj = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
             
-            userData = info;
+            const gender = document.getElementById('gender').value;
+            const time = document.getElementById('birthTime').value;
+            const calType = document.getElementById('calendarType').value;
+
+            let finalYear;
+            if (calType === 'solar') {
+                const lunar = getLunarInfo(birthDateObj);
+                finalYear = lunar.year;
+            } else {
+                finalYear = parseInt(parts[0]);
+            }
+
+            userData.myeongGwa = getMyeongGwa(finalYear, gender);
+            userData.lunarYear = finalYear;
+            
             isAnalyzed = true;
-            
-            const display = document.getElementById('myeongGwaDisplay');
-            if (display) display.innerText = `본명괘: ${userData.myeongGwa}괘 (${userData.calendarType === 'lunar' ? '음력' : '양력'})`;
-            
+            document.getElementById('myeongGwaDisplay').innerText = `나의 본명괘: ${userData.myeongGwa}괘`;
+            document.getElementById('lunarRefDisplay').innerText = `(분석 기준: ${finalYear}년 음력 세차)`;
             renderCalendar();
-            document.getElementById('analysisResult').classList.add('hidden');
-        }
+
+            if (shouldSave && typeof window.saveData === 'function') {
+                window.saveData({ birthDate: birthStr, birthTime: time, gender, calendarType: calType });
+            }
+        };
+
+        window.changeMonth = function(offset) {
+            viewDate.setMonth(viewDate.getMonth() + offset);
+            renderCalendar();
+        };
 
         window.onload = renderCalendar;
     </script>
